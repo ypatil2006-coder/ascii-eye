@@ -3,9 +3,11 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A parametric mathematical ASCII shader and animation engine replicating [buildmeri's *'in your eyes'*](https://www.instagram.com/reel/DeshX7jIyXP/). Built with pure Python, NumPy vectorization, and ANSI TrueColor formatting.
+A hyper-realistic parametric mathematical ASCII shader and animation engine replicating [buildmeri's *'in your eyes'*](https://www.instagram.com/reel/DeshX7jIyXP/). Built with pure Python, NumPy vectorization, and ANSI TrueColor formatting.
 
 ![ASCII Eye Preview](preview.gif)
+
+> 🎬 **Full Screen Recording with Sound (HD)**: [**demo.mp4**](https://github.com/ypatil2006-coder/ascii-eye/raw/main/demo.mp4) *(Watch real-time mouse tracking, blinks, and Billie Eilish - CHIHIRO in action)*
 
 ---
 
@@ -13,11 +15,16 @@ A parametric mathematical ASCII shader and animation engine replicating [buildme
 
 - **Responsive Fullscreen CLI**: Dynamically queries terminal dimensions (`shutil.get_terminal_size()`) and fills 100% of your terminal window edge-to-edge.
 - **Aspect-Ratio Preservation**: Automatically accounts for the $2.05\times$ vertical character cell ratio so the eye remains perfectly circular and undistorted across standard, ultrawide, and vertical split layouts.
-- **Real-Time Mouse Tracking (SGR 1006)**: The eye tracks your mouse cursor anywhere across the terminal in real time.
-- **Natural Biological Motion**:
-  - Smooth saccades and idle glancing behavior when mouse is stationary.
-  - Spontaneous human-like blinks with a realistic cubic-bezier easing curve (~240ms duration).
-  - Micro-jitter and organic character variations.
+- **Real-Time SGR 1006 Mouse Tracking**: The eye tracks your mouse cursor anywhere across the terminal in real time (moving up looks UP, moving down looks DOWN).
+- **Biological Realism**:
+  - **Pupillary Hippus**: Continuous autonomic pupil dilation/constriction breathing (~1.5Hz).
+  - **3D Corneal Curvature**: Perspective elliptical foreshortening of the iris when glancing off-axis.
+  - **Optical Parallax Catchlights**: Stationary external light reflections sliding across the curved cornea.
+  - **Scleral Micro-Capillaries**: Delicate branching vascular blood vessels threading from the corners of the eye.
+  - **Lacrimal Caruncle**: Fleshy pink mucosal nodule at the inner nasal canthus.
+  - **Wet Tear Meniscus**: Glistening specular reflection along the lower eyelid waterline.
+  - **Tschermak's Eyelid Lag**: Eyelids follow the vertical orientation of the cornea.
+  - **Fixational Eye Movements**: High-frequency physiological tremor (~40Hz) and microsaccadic corrections.
 - **Soundtrack Integration**: Plays Billie Eilish - *CHIHIRO* in the background using `mpv`.
 - **Desktop GUI Mode**: Includes an optional Tkinter canvas renderer (`--gui`) matching the original *"Eye -> Space"* setup.
 
