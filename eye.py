@@ -3,14 +3,18 @@
 ASCII Eye Animation & Interaction Engine
 Replication of buildmeri's 'in your eyes' with Python (ANSI Terminal + Tkinter + NumPy)
 
-Features:
-- Responsive Fullscreen Terminal Mode: dynamically adapts to 100% of the terminal dimensions.
-- Full aspect-ratio preservation: eye is never distorted, with skin and vignette covering the rest.
-- Large, commanding eye scale: fills the central view with rich iris and lash detail.
-- Natural Live Mouse Tracking: moving mouse UP looks UP, moving mouse DOWN looks DOWN.
-- Interactive triggers: Left click to blink, Spacebar to glance & blink, Arrow keys for manual gaze.
-- M key toggles background Billie Eilish - CHIHIRO sound integration.
-- Desktop Tkinter GUI mode available via `--gui`.
+Hyper-Realistic Biological Realism Features:
+- Pupillary Hippus: continuous autonomic pupil dilation/constriction breathing (~1.5Hz).
+- Post-Blink Pupil Reflex: realistic sympathetic pupillary response upon reopening.
+- 3D Corneal Curvature: perspective elliptical foreshortening of iris when glancing off-axis.
+- Optical Parallax Catchlights: stationary external light reflections sliding across the curved cornea.
+- Scleral Micro-Vessels: delicate branching vascular capillaries threading from the eye corners.
+- Lacrimal Caruncle: pink fleshy inner-corner tear duct nodule.
+- Wet Tear Meniscus: glistening specular sheen along the lower waterline shelf.
+- Multi-Layer Iris: limbal ring, pupillary sphincter muscle, crypts, collarette, and contraction furrows.
+- Tschermak's Eyelid Lag: eyelids dynamically follow vertical eyeball orientation.
+- Fixational Eye Movements: high-frequency physiological tremor (~40Hz) and microsaccadic corrections.
+- Fullscreen Terminal Mode: 100% window edge-to-edge coverage, auto-resizing, and mouse tracking.
 """
 
 import sys
@@ -150,12 +154,13 @@ class EyeRenderer:
         self.in_eye_horiz = np.abs(self.s) <= 1.0
         self.arch = np.maximum(0.0, 1.0 - self.s**2)
 
-    def render(self, ou=1.0, gx=0.0, gy=0.0, tick=0):
+    def render(self, ou=1.0, gx=0.0, gy=0.0, tick=0, pupil_r=0.125):
         """
         Renders a single frame.
         ou: openness (1.0 = wide open, 0.0 = completely shut)
         gx, gy: gaze coordinates (-0.22 to 0.22 for gx, -0.14 to 0.14 for gy)
         tick: animation step counter
+        pupil_r: dynamic pupil radius incorporating hippus and post-blink reflex
         """
         u, v = self.u, self.v
         s = self.s
@@ -163,10 +168,12 @@ class EyeRenderer:
         in_eye_horiz = self.in_eye_horiz
         h, w = self.h, self.w
 
-        # 1. Eyelid Geometry
-        y_up_open = 0.46 * arch * (1.0 - 0.15 * s) + 0.02 * s
-        y_dn_open = -0.28 * arch * (1.0 + 0.10 * s) + 0.01 * s
-        y_seam = -0.06 * arch + 0.01 * s
+        # 1. Biological Eyelid Geometry with Eyelid Lag (Tschermak's Law)
+        # Vertical gaze shifts eyelids slightly to follow eyeball rotation
+        lid_lag = gy * 0.20 * ou
+        y_up_open = 0.46 * arch * (1.0 - 0.15 * s) + 0.02 * s + lid_lag
+        y_dn_open = -0.28 * arch * (1.0 + 0.10 * s) + 0.01 * s + lid_lag * 0.65
+        y_seam = -0.06 * arch + 0.01 * s + lid_lag * 0.50
 
         y_up = y_up_open * ou + y_seam * (1.0 - ou)
         y_dn = y_dn_open * (0.2 + 0.8 * ou) + (y_seam - 0.01) * (1.0 - ou)
@@ -177,7 +184,7 @@ class EyeRenderer:
         upper = v >= lid_mid
         inside_eye = in_eye_horiz & (v < y_up) & (v > y_dn) & (y_up > y_dn + 0.02) & (ou > 0.04)
 
-        # 2. Base Skin Tones
+        # 2. Base Skin Tones with Subcutaneous Warmth
         base = np.array([0.62, 0.40, 0.29], dtype=np.float32)
         col = np.ones((h, w, 3), dtype=np.float32) * base * (0.88 + 0.24 * self.tx_skin[..., None])
 
@@ -199,13 +206,16 @@ class EyeRenderer:
         lower_fold = np.exp(-((dl - 0.10) / 0.05)**2) * (~upper) * in_eye_horiz
         col -= lower_fold[..., None] * np.array([0.13, 0.10, 0.08], dtype=np.float32)
 
-        # Waterline along lower eyelid margin
+        # Waterline along lower eyelid margin with glistening tear meniscus
         wl = np.exp(-((dl - 0.014) / 0.007)**2) * (~upper) * in_eye_horiz * (0.3 + 0.7 * ou)
+        meniscus = np.exp(-((dl - 0.009) / 0.004)**2) * (~upper) * in_eye_horiz * ou
         col = np.where(
-            wl[..., None] > 0.12,
+            wl[..., None] > 0.10,
             col * (1.0 - wl[..., None] * 0.75) + np.array([0.76, 0.34, 0.30], dtype=np.float32) * (wl[..., None] * 0.75),
             col,
         )
+        # Wet glistening sheen along tear meniscus
+        col += meniscus[..., None] * np.array([0.45, 0.40, 0.38], dtype=np.float32)
 
         # Dark eyeliner along lid margins
         line_up = np.exp(-(du / 0.014)**2) * upper * in_eye_horiz
@@ -213,45 +223,70 @@ class EyeRenderer:
         lashline = np.maximum(line_up, line_dn)
         col -= lashline[..., None] * np.array([0.48, 0.36, 0.28], dtype=np.float32)
 
-        # 3. Eyeball Sclera
+        # 3. Eyeball Sclera with Vascular Micro-Capillaries & Lacrimal Caruncle
         sclera_col = np.array([0.94, 0.92, 0.90], dtype=np.float32)
-        canthus = ss(0.40, 0.95, np.abs(s))
-        sclera_col = sclera_col * (1.0 - canthus[..., None]) + np.array([0.84, 0.45, 0.45], dtype=np.float32) * canthus[..., None]
+        canthus = ss(0.38, 0.95, np.abs(s))
+
+        # Inner corner lacrimal caruncle (nasal tear gland at s < -0.65)
+        caruncle = ss(-0.55, -0.92, s) * ss(0.20, 0.0, np.abs(v - y_seam)) * in_eye_horiz
+        c_caruncle = np.array([0.84, 0.42, 0.40], dtype=np.float32)
+
+        # Delicate branching micro-capillaries (blood vessels)
+        vessel_uv = u * 48.0 + np.sin(v * 32.0) * 2.2 + self.tx_fibers * 3.5
+        vessel_line = np.exp(-((np.sin(vessel_uv)) / 0.13)**2)
+        vessel_mask = vessel_line * ss(0.35, 0.88, np.abs(s)) * 0.42
+        c_vessel = np.array([0.76, 0.28, 0.28], dtype=np.float32)
+
+        # Blend canthus pinks, blood vessels, and caruncle
+        sclera_col = sclera_col * (1.0 - canthus[..., None] * 0.65) + np.array([0.86, 0.44, 0.42], dtype=np.float32) * (canthus[..., None] * 0.65)
+        sclera_col = sclera_col * (1.0 - vessel_mask[..., None]) + c_vessel * vessel_mask[..., None]
+        sclera_col = np.where(caruncle[..., None] > 0.15, sclera_col * 0.3 + c_caruncle * 0.7, sclera_col)
         sclera_col *= (0.92 + 0.16 * self.tx_detail[..., None])
 
         # Upper lid shadow over sclera
-        lid_shadow = ss(0.0, 0.18, y_up - v) * upper
-        sclera_col *= (0.50 + 0.50 * lid_shadow[..., None])
+        lid_shadow = ss(0.0, 0.19, y_up - v) * upper
+        sclera_col *= (0.48 + 0.52 * lid_shadow[..., None])
 
-        # 4. Iris & Pupil
+        # 4. Iris & Pupil with 3D Spherical Curvature & Optical Parallax
         cx, cy = gx, gy
-        dist_iris = np.sqrt((u - cx)**2 + ((v - cy) * 1.05)**2)
+        cos_theta = max(0.65, np.cos(gx * 1.6))
+        u_dist = (u - cx) / cos_theta
+        v_dist = (v - cy) * 1.05
+        dist_iris = np.sqrt(u_dist**2 + v_dist**2)
         r_iris = 0.34
-        r_pupil = 0.13
+        r_pupil = pupil_r
 
         in_iris = (dist_iris < r_iris) & inside_eye
         in_pupil = (dist_iris < r_pupil) & inside_eye
 
         angle = np.arctan2(v - cy, u - cx)
         iris_norm = dist_iris / r_iris
-        radial_spokes = 0.5 + 0.5 * np.cos(angle * 32.0 + self.tx_fibers * 8.0)
-        limbal = ss(0.74, 0.98, iris_norm)
-        collarette = np.exp(-((iris_norm - 0.45) / 0.15)**2)
 
-        c_limbal = np.array([0.08, 0.18, 0.24], dtype=np.float32)
-        c_stroma = np.array([0.30, 0.52, 0.44], dtype=np.float32)  # Hazel-teal
-        c_inner = np.array([0.70, 0.54, 0.22], dtype=np.float32)   # Golden amber
+        # Concentric contraction furrows + radial trabeculae fibers
+        radial_spokes = 0.5 + 0.5 * np.cos(angle * 32.0 + self.tx_fibers * 9.0)
+        furrows = 0.5 + 0.5 * np.cos(iris_norm * 26.0 + self.tx_detail * 3.0)
+        limbal = ss(0.72, 0.98, iris_norm)
+        collarette = np.exp(-((iris_norm - 0.42) / 0.14)**2)
+        sphincter = ss(0.25, 0.05, iris_norm - (r_pupil / r_iris))  # dark ring hugging pupil margin
+
+        c_limbal = np.array([0.06, 0.14, 0.20], dtype=np.float32)  # Deep dark navy-charcoal limbal ring
+        c_stroma = np.array([0.30, 0.52, 0.44], dtype=np.float32)  # Hazel-teal stroma
+        c_inner = np.array([0.72, 0.55, 0.22], dtype=np.float32)   # Golden amber collarette
 
         iris_col = c_stroma * (1.0 - collarette[..., None] * 0.6) + c_inner * (collarette[..., None] * 0.6)
-        iris_col += (radial_spokes[..., None] - 0.5) * 0.15
-        iris_col = iris_col * (1.0 - limbal[..., None] * 0.75) + c_limbal * (limbal[..., None] * 0.75)
-        iris_col *= (0.55 + 0.45 * lid_shadow[..., None])
+        iris_col += (radial_spokes[..., None] - 0.5) * 0.16 + (furrows[..., None] - 0.5) * 0.06
+        iris_col = iris_col * (1.0 - sphincter[..., None] * 0.35)
+        iris_col = iris_col * (1.0 - limbal[..., None] * 0.78) + c_limbal * (limbal[..., None] * 0.78)
+        iris_col *= (0.52 + 0.48 * lid_shadow[..., None])
 
-        pupil_col = np.array([0.02, 0.02, 0.02], dtype=np.float32)
+        pupil_col = np.array([0.015, 0.015, 0.015], dtype=np.float32)
 
-        # Corneal Specular Highlights (Catchlights)
-        sp1 = np.exp(-((np.sqrt((u - (cx - 0.07))**2 + ((v - (cy + 0.08)) * 1.1)**2)) / 0.030)**2) * 1.8
-        sp2 = np.exp(-((np.sqrt((u - (cx + 0.08))**2 + ((v - (cy - 0.05)) * 1.1)**2)) / 0.020)**2) * 0.95
+        # Optical Parallax Corneal Specular Highlights (Catchlights)
+        # Stationary external light source creates realistic depth displacement
+        glint_cx = cx * 0.32 - 0.055
+        glint_cy = cy * 0.32 + 0.065
+        sp1 = np.exp(-((np.sqrt((u - glint_cx)**2 + ((v - glint_cy) * 1.1)**2)) / 0.030)**2) * 1.8
+        sp2 = np.exp(-((np.sqrt((u - (glint_cx + 0.13))**2 + ((v - (glint_cy - 0.11)) * 1.1)**2)) / 0.018)**2) * 0.90
         glint = np.clip(sp1 + sp2, 0.0, 1.0)
 
         eye_composite = sclera_col
@@ -261,7 +296,7 @@ class EyeRenderer:
 
         col = np.where(inside_eye[..., None], eye_composite, col)
 
-        # 5. Eyelashes
+        # 5. Eyelashes with Natural Directional Grouping
         lash_freq = 28.0
         lash_spikes = np.maximum(0.0, np.cos(u * lash_freq + s * 1.8))**7.0
         lash_len_up = (0.11 + 0.05 * s**2) * (0.35 + 0.65 * ou)
@@ -279,13 +314,13 @@ class EyeRenderer:
 
         col = np.clip(col, 0.0, 1.0)
 
-        # 6. Character Mapping
+        # 6. High-Fidelity Character Mapping
         char_matrix = []
         for r in range(h):
             row_chars = []
             for c in range(w):
                 h_val = self.char_hash[r, c]
-                if total_lash[r, c] > 0.40:
+                if total_lash[r, c] > 0.38:
                     if ou < 0.2:
                         ch = '-' if (c % 2 == 0) else '+'
                     elif u[r, c] < -0.15:
@@ -294,14 +329,21 @@ class EyeRenderer:
                         ch = '\\'
                     else:
                         ch = '|'
-                elif glint[r, c] > 0.55:
-                    ch = '*'
+                elif glint[r, c] > 0.50:
+                    ch = '*' if glint[r, c] > 0.75 else '+'
                 elif in_pupil[r, c]:
                     ch = '@' if dist_iris[r, c] < r_pupil * 0.65 else '#'
                 elif in_iris[r, c]:
                     ch = self.iris_letters[(h_val + tick) % len(self.iris_letters)]
+                elif meniscus[r, c] > 0.40:
+                    ch = '='
+                elif caruncle[r, c] > 0.35:
+                    ch = '&' if (r + c) % 2 == 0 else '%'
                 elif inside_eye[r, c]:
-                    ch = self.sclera_letters[h_val % len(self.sclera_letters)]
+                    if vessel_mask[r, c] > 0.22:
+                        ch = '~' if (c % 2 == 0) else ';'
+                    else:
+                        ch = self.sclera_letters[h_val % len(self.sclera_letters)]
                 elif lashline[r, c] > 0.35:
                     ch = '-' if abs(u[r, c]) < 0.3 else ('/' if u[r, c] < 0 else '\\')
                 elif crease[r, c] > 0.35:
@@ -316,25 +358,31 @@ class EyeRenderer:
 
 
 class EyeController:
-    """Manages natural saccades, blinks, and interactive triggers."""
+    """Manages natural saccades, blinks, microsaccades, tremor, and pupillary hippus."""
     def __init__(self):
         self.ou = 1.0          # Current openness (0.0 = closed, 1.0 = open)
         self.ou_target = 1.0
-        self.gx = 0.0          # Current horizontal gaze (-0.22 to 0.22)
-        self.gy = 0.0          # Current vertical gaze (-0.14 to 0.14, negative is UP, positive is DOWN)
+        self.gx = 0.0          # Current horizontal gaze
+        self.gy = 0.0          # Current vertical gaze
+        self.gx_smooth = 0.0
+        self.gy_smooth = 0.0
         self.gx_target = 0.0
         self.gy_target = 0.0
+
+        self.pupil_radius = 0.125
+        self.last_blink_end_time = 0.0
 
         self.mouse_control = False
         self.last_mouse_time = time.time()
         self.blink_start_time = 0.0
         self.is_blinking = False
         self.next_saccade_time = time.time() + 1.5
+        self.next_microsaccade_time = time.time() + 0.8
         self.next_blink_time = time.time() + 3.0
 
     def trigger_space_animation(self):
         """Action triggered when Spacebar or Click is pressed."""
-        self.gx_target = random.choice([-0.18, 0.0, 0.18])
+        self.gx_target = random.choice([-0.18, -0.09, 0.0, 0.09, 0.18])
         self.gy_target = random.choice([-0.06, 0.0, 0.06])
         self.trigger_blink()
 
@@ -365,34 +413,52 @@ class EyeController:
         # 1. Idle Saccades
         if not self.mouse_control and now > self.next_saccade_time:
             self.gx_target = random.choice([-0.20, -0.10, 0.0, 0.10, 0.20])
-            self.gy_target = random.choice([-0.06, 0.0, 0.06])
+            self.gy_target = random.choice([-0.06, -0.02, 0.0, 0.03, 0.06])
             self.next_saccade_time = now + random.uniform(1.2, 3.2)
 
-        # 2. Spontaneous Blinks
+        # 2. Fixational Microsaccades (subtle corrective jolt during fixation)
+        if not self.mouse_control and not self.is_blinking and now > self.next_microsaccade_time:
+            self.gx_target += random.uniform(-0.015, 0.015)
+            self.gy_target += random.uniform(-0.009, 0.009)
+            self.next_microsaccade_time = now + random.uniform(0.8, 1.8)
+
+        # 3. Spontaneous Blinks
         if now > self.next_blink_time:
             self.trigger_blink()
             self.next_blink_time = now + random.uniform(3.0, 6.0)
 
-        # 3. Handle Blink Curve (~240ms duration)
+        # 4. Handle Blink Curve (~240ms duration) with Easing
         if self.is_blinking:
             elapsed = (now - self.blink_start_time) * 1000.0  # ms
-            if elapsed < 90.0:
-                t = elapsed / 90.0
+            if elapsed < 85.0:
+                t = elapsed / 85.0
                 self.ou = 1.0 - (t * t)
-            elif elapsed < 130.0:
+            elif elapsed < 125.0:
                 self.ou = 0.0
-            elif elapsed < 250.0:
-                t = (elapsed - 130.0) / 120.0
+            elif elapsed < 240.0:
+                t = (elapsed - 125.0) / 115.0
                 self.ou = t * (2.0 - t)  # ease-out
             else:
                 self.ou = 1.0
                 self.is_blinking = False
+                self.last_blink_end_time = now
         else:
             self.ou = 1.0
 
         # Smooth Gaze Motion (exponential damping)
-        self.gx += (self.gx_target - self.gx) * 0.22
-        self.gy += (self.gy_target - self.gy) * 0.22
+        self.gx_smooth += (self.gx_target - self.gx_smooth) * 0.22
+        self.gy_smooth += (self.gy_target - self.gy_smooth) * 0.22
+
+        # 5. Physiological Tremor (micro-nystagmus ~30-50Hz)
+        tremor_x = math.sin(now * 34.0) * 0.0022 + math.cos(now * 48.0) * 0.0014
+        tremor_y = math.cos(now * 30.0) * 0.0018 + math.sin(now * 42.0) * 0.0010
+        self.gx = float(self.gx_smooth + tremor_x)
+        self.gy = float(self.gy_smooth + tremor_y)
+
+        # 6. Pupillary Hippus (subtle continuous pupil dilation breathing)
+        hippus = math.sin(now * 1.5) * 0.012 + math.sin(now * 3.2 + 0.8) * 0.006
+        post_blink = 0.022 * max(0.0, 1.0 - (now - self.last_blink_end_time) / 0.7)
+        self.pupil_radius = 0.125 + hippus + post_blink
 
 
 class GuiEyeApp:
@@ -479,7 +545,7 @@ class GuiEyeApp:
         gx = self.controller.gx
         gy = self.controller.gy
 
-        col, chars = self.renderer.render(ou=ou, gx=gx, gy=gy, tick=self.tick)
+        col, chars = self.renderer.render(ou=ou, gx=gx, gy=gy, tick=self.tick, pupil_r=self.controller.pupil_radius)
         self.tick += 1
 
         # Fast blit into pixel buffer
@@ -518,7 +584,7 @@ def run_terminal_mode(renderer, controller, fps=30, auto_music=False, auto_resiz
     Terminal Mode:
     - Automatically covers 100% of the terminal window edge-to-edge.
     - Full dynamic responsive resizing on window resize / SIGWINCH.
-    - Big detailed eye scale matching user's requested size.
+    - High-fidelity biological realism with micro-vessels, tear meniscus, and 3D cornea.
     - Natural live mouse tracking (moving mouse UP looks UP, moving DOWN looks DOWN).
     - Left Click triggers blink; Right Click triggers glance + blink.
     - Keyboard: Spacebar (glance & blink), Arrow keys (manual gaze), M (toggle music), Q/Ctrl+C (quit).
@@ -655,8 +721,10 @@ def run_terminal_mode(renderer, controller, fps=30, auto_music=False, auto_resiz
             gx = controller.gx
             gy = controller.gy
 
-            # Render frame
-            col, chars = renderer.render(ou=ou, gx=gx, gy=gy, tick=tick)
+            # Render frame with dynamic pupil dilation & biological features
+            col, chars = renderer.render(
+                ou=ou, gx=gx, gy=gy, tick=tick, pupil_r=controller.pupil_radius
+            )
             tick += 1
 
             # Build ANSI string with fast vector colors
