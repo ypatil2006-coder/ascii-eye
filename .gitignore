@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# System / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+upload_helper.py
