@@ -16,4 +16,6 @@ ENV/
 .vscode/
 *.swp
 *~
-upload_helper.py
+# Compiled native binaries
+eye_asm
+*.o
